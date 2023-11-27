@@ -33,7 +33,9 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
             if  watchSession?.activationState != WCSessionActivationState.activated{
                 watchSession?.activate()
             }else{
-                callbackChannel.invokeMethod("activateStateChanged", arguments: WCSessionActivationState.activated.rawValue)
+                DispatchQueue.main.async {
+                    self.callbackChannel.invokeMethod("activateStateChanged", arguments: WCSessionActivationState.activated.rawValue)
+                }
             }
             result(nil)
         case "getActivateState":
@@ -60,7 +62,9 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
                             var arguments: [String: Any] = [:]
                             arguments["replyMessage"] = replyHandler
                             arguments["replyHandlerId"] = replyHandlerId
-                            self.callbackChannel.invokeMethod("onMessageReplied", arguments: arguments)
+                            DispatchQueue.main.async {
+                                self.callbackChannel.invokeMethod("onMessageReplied", arguments: arguments)
+                            }
                         }
                     }
                     watchSession?.sendMessage(message, replyHandler: handler){ error in
@@ -222,7 +226,7 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
     }
     
     private func checkForWatchSession(result: FlutterResult){
-        guard watchSession != nil else{
+        guard watchSession != nil else {
             handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
             return
         }
@@ -239,7 +243,9 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
 //MARK: - WCSessionDelegate methods handle
 extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
     public func sessionReachabilityDidChange(_ session: WCSession) {
-        callbackChannel.invokeMethod("reachabilityChanged", arguments: session.isReachable)
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("reachabilityChanged", arguments: session.isReachable)
+        }
     }
     
     public func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
@@ -247,25 +253,33 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
             handleCallbackError(message: error!.localizedDescription)
             return
         }
-        callbackChannel.invokeMethod("reachabilityChanged", arguments: session.isReachable)
-        callbackChannel.invokeMethod("activateStateChanged", arguments: activationState.rawValue)
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("reachabilityChanged", arguments: session.isReachable)
+            self.callbackChannel.invokeMethod("activateStateChanged", arguments: activationState.rawValue)
+        }
         getPairedDeviceInfo(session: session)
     }
     
     public func sessionDidBecomeInactive(_ session: WCSession) {
-        callbackChannel.invokeMethod("activateStateChanged", arguments: session.activationState)
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("activateStateChanged", arguments: session.activationState)
+        }
         getPairedDeviceInfo(session: session)
     }
     
     public func sessionDidDeactivate(_ session: WCSession) {
-        callbackChannel.invokeMethod("activateStateChanged", arguments: session.activationState)
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("activateStateChanged", arguments: session.activationState)
+        }
         getPairedDeviceInfo(session: session)
     }
     
     public func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
         var messageContent: [String: Any] = [:]
         messageContent["message"] = message
-        callbackChannel.invokeMethod("messageReceived", arguments: messageContent)
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("messageReceived", arguments: messageContent)
+        }
     }
     
     public func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
@@ -273,24 +287,33 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
         let replyHandlerId = randomString(length: 20)
         messageContent["message"] = message
         messageContent["replyHandlerId"] = replyHandlerId
-        callbackChannel.invokeMethod("messageReceived", arguments: messageContent)
-        messageReplyHandlers[replyHandlerId] = replyHandler
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("messageReceived", arguments: messageContent)
+            self.messageReplyHandlers[replyHandlerId] = replyHandler
+        }
     }
     
     public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
-        callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: getApplicationContext(session: session))
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: getApplicationContext(session: session))
+        }
+        
     }
     
     public func sessionWatchStateDidChange(_ session: WCSession) {
-        do{
-            callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
-        }catch{
+        do {
+            DispatchQueue.main.async {
+                self.callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
+            }
+        } catch {
             handleCallbackError(message: error.localizedDescription)
         }
     }
     
     public func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
-        callbackChannel.invokeMethod("onUserInfoReceived", arguments: userInfo)
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("onUserInfoReceived", arguments: userInfo)
+        }
     }
     
     public func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
@@ -298,7 +321,9 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
             handleCallbackError(message: error!.localizedDescription)
             return
         }
-        callbackChannel.invokeMethod("onUserInfoTransferDidFinish", arguments: userInfoTransfer.toRawTransferDict())
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("onUserInfoTransferDidFinish", arguments: userInfoTransfer.toRawTransferDict())
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: {
             self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession!.outstandingUserInfoTransfers.map{
                 $0.toRawTransferDict()
@@ -311,7 +336,9 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
             handleCallbackError(message: error!.localizedDescription)
             return
         }
-        callbackChannel.invokeMethod("onFileTransferDidFinish", arguments: fileTransfer.toRawTransferDict())
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("onFileTransferDidFinish", arguments: fileTransfer.toRawTransferDict())
+        }
         if let metadata = fileTransfer.file.metadata, let transferId = metadata["id"] as? String, let timer = fileProgressTimers[transferId]{
             timer.invalidate()
             fileProgressTimers.removeValue(forKey: transferId)
@@ -336,8 +363,9 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
             if let metadata = file.metadata{
                 fileDict["metadata"] = metadata
             }
-            
-            callbackChannel.invokeMethod("onFileReceived", arguments: fileDict)
+            DispatchQueue.main.async {
+                self.callbackChannel.invokeMethod("onFileReceived", arguments: fileDict)
+            }
         } catch {
             handleCallbackError(message: error.localizedDescription)
         }
@@ -350,9 +378,11 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
 //MARK: - Helper methods
 extension SwiftFlutterWatchOsConnectivityPlugin{
     private func getPairedDeviceInfo(session: WCSession){
-        do{
-            callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
-        }catch{
+        do {
+            DispatchQueue.main.async {
+                self.callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
+            }
+        } catch {
             handleCallbackError(message: error.localizedDescription)
         }
     }
@@ -369,7 +399,9 @@ extension SwiftFlutterWatchOsConnectivityPlugin{
     }
     
     private func handleCallbackError(message: String){
-        callbackChannel.invokeMethod("onError", arguments: message)
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("onError", arguments: message)
+        }
     }
 }
 
@@ -412,9 +444,9 @@ extension Progress{
     func toProgressDict()-> [String: Any]{
         var dict:  [String: Any] = [:]
         dict["currentProgress"] = self.completedUnitCount
-//        if let estimatedTimeRemaining = self.estimatedTimeRemaining{
-//            dict["estimateTimeRemaining"] = Int((estimatedTimeRemaining.truncatingRemainder(dividingBy: 1)) * 1000)
-//        }
+        //        if let estimatedTimeRemaining = self.estimatedTimeRemaining{
+        //            dict["estimateTimeRemaining"] = Int((estimatedTimeRemaining.truncatingRemainder(dividingBy: 1)) * 1000)
+        //        }
         return dict
     }
 }
