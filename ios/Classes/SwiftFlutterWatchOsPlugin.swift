@@ -295,7 +295,6 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
     
     public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
             self?.callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: getApplicationContext(session: session))
         }
         
@@ -303,10 +302,7 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
     
     public func sessionWatchStateDidChange(_ session: WCSession) {
         do {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self?.callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
-            }
+            callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
         } catch {
             handleCallbackError(message: error.localizedDescription)
         }
@@ -381,10 +377,7 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
 extension SwiftFlutterWatchOsConnectivityPlugin{
     private func getPairedDeviceInfo(session: WCSession){
         do {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self?.callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
-            }
+            callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
         } catch {
             handleCallbackError(message: error.localizedDescription)
         }
