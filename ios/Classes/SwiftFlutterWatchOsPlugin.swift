@@ -294,10 +294,7 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
     }
     
     public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
-        DispatchQueue.main.async { [weak self] in
-            self?.callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: getApplicationContext(session: session))
-        }
-        
+        callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: getApplicationContext(session: session))
     }
     
     public func sessionWatchStateDidChange(_ session: WCSession) {
