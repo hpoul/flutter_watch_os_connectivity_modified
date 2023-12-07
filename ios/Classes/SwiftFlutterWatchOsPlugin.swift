@@ -18,12 +18,12 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
     
-    init(callbackChannel: FlutterMethodChannel){
+    init(callbackChannel: FlutterMethodChannel) {
         self.callbackChannel = callbackChannel
     }
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        switch call.method{
+        switch call.method {
         case "isSupported":
             let isSupported = WCSession.isSupported()
             result(isSupported)
@@ -43,9 +43,9 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
             result(watchSession?.activationState.rawValue)
         case "getPairedDeviceInfo":
             checkForWatchSession(result: result)
-            do{
+            do {
                 result(try watchSession?.toPairedDeviceJsonString())
-            }catch{
+            } catch {
                 handleFlutterError(result: result, message: error.localizedDescription)
             }
         case "getReachability":
@@ -53,11 +53,11 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
             result(watchSession!.isReachable)
         case "sendMessage":
             checkForWatchSession(result: result)
-            if let arguments = call.arguments as? [String: Any]{
+            if let arguments = call.arguments as? [String: Any] {
                 checkSessionReachability(result: result)
-                if let message = arguments["message"] as? [String: Any]{
+                if let message = arguments["message"] as? [String: Any] {
                     var handler: ReplyHandler? = nil
-                    if let replyHandlerId = arguments["replyHandlerId"] as? String{
+                    if let replyHandlerId = arguments["replyHandlerId"] as? String {
                         handler = { replyHandler in
                             var arguments: [String: Any] = [:]
                             arguments["replyMessage"] = replyHandler
@@ -76,9 +76,9 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
             result(nil)
         case "replyMessage":
             checkForWatchSession(result: result)
-            if let arguments = call.arguments as? [String: Any]{
+            if let arguments = call.arguments as? [String: Any] {
                 checkSessionReachability(result: result)
-                if let message = arguments["replyMessage"] as? [String: Any], let replyHandlerId = arguments["replyHandlerId"] as? String, let replyHandler =  messageReplyHandlers[replyHandlerId]{
+                if let message = arguments["replyMessage"] as? [String: Any], let replyHandlerId = arguments["replyHandlerId"] as? String, let replyHandler =  messageReplyHandlers[replyHandlerId] {
                     replyHandler(message)
                 }
             }
@@ -88,11 +88,13 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
             result(getApplicationContext(session: watchSession!))
         case "updateApplicationContext":
             checkForWatchSession(result: result)
-            if let sentApplicationContext = call.arguments as? [String: Any]{
-                do{
+            if let sentApplicationContext = call.arguments as? [String: Any] {
+                do {
                     try watchSession?.updateApplicationContext(sentApplicationContext)
-                    self.callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: getApplicationContext(session: self.watchSession!))
-                }catch{
+                    DispatchQueue.main.async {
+                        self.callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: self.getApplicationContext(session: self.watchSession!))
+                    }
+                } catch {
                     handleFlutterError(result: result, message: error.localizedDescription)
                 }
             }
@@ -101,9 +103,11 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
             checkForWatchSession(result: result)
             if let arguments = call.arguments as? [String: Any], let userInfo = arguments["userInfo"] as? [String: Any], let isComplication = arguments["isComplication"] as? Bool{
                 let userInfoTransfer = isComplication ? watchSession!.transferCurrentComplicationUserInfo(userInfo) : watchSession!.transferUserInfo(userInfo)
-                self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession?.outstandingUserInfoTransfers.map{
-                    $0.toRawTransferDict()
-                })
+                DispatchQueue.main.async {
+                    self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession?.outstandingUserInfoTransfers.map{
+                        $0.toRawTransferDict()
+                    })
+                }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: {
                     result(userInfoTransfer.toRawTransferDict())
                 })
@@ -113,7 +117,7 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
             result(nil)
         case "getOnProgressUserInfoTransfers":
             checkForWatchSession(result: result)
-            result(watchSession!.outstandingUserInfoTransfers.map{
+            result(watchSession!.outstandingUserInfoTransfers.map {
                 $0.toRawTransferDict()
             })
         case "getRemainingComplicationUserInfoTransferCount":
@@ -125,32 +129,34 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
             }
         case "transferFileInfo":
             checkForWatchSession(result: result)
-            if let arguments = call.arguments as? [String: Any], let path = arguments["filePath"] as? String, let metadata = arguments["metadata"] as? [String: Any]{
+            if let arguments = call.arguments as? [String: Any], let path = arguments["filePath"] as? String, let metadata = arguments["metadata"] as? [String: Any] {
                 let url = URL.init(fileURLWithPath: path)
                 let transfer = watchSession!.transferFile(url, metadata: metadata)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: {
                     result(transfer.toRawTransferDict())
                 })
-                self.callbackChannel.invokeMethod("onPendingFileTransferListChanged", arguments: self.watchSession?.outstandingFileTransfers.map{
-                    $0.toRawTransferDict()
-                })
+                DispatchQueue.main.async {
+                    self.callbackChannel.invokeMethod("onPendingFileTransferListChanged", arguments: self.watchSession?.outstandingFileTransfers.map {
+                        $0.toRawTransferDict()
+                    })
+                }
                 return
             }
             result(nil)
         case "setFileTransferProgressListener":
             checkForWatchSession(result: result)
-            if let transferId = call.arguments as? String{
-                if let timer = fileProgressTimers[transferId]{
+            if let transferId = call.arguments as? String {
+                if let timer = fileProgressTimers[transferId] {
                     timer.invalidate()
                     fileProgressTimers.removeValue(forKey: transferId)
                 }
                 if let transfer = watchSession!.outstandingFileTransfers.first(where: { transfer in
-                    transfer.file.metadata != nil && transfer.file.metadata!.contains{key, value in
+                    transfer.file.metadata != nil && transfer.file.metadata!.contains {key, value in
                         key == "id" && value is String && (value as! String) == transferId
                     }
                 }){
                     if #available(iOS 10.0, *) {
-                        fileProgressTimers[transferId] = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true){timer in
+                        fileProgressTimers[transferId] = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
                             if #available(iOS 12.0, *) {
                                 if transfer.progress.isCancelled || transfer.progress.isFinished{
                                     timer.invalidate()
@@ -160,63 +166,69 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
                                 // Fallback on earlier versions
                             }
                             if #available(iOS 12.0, *) {
-                                self.callbackChannel.invokeMethod("onFileProgressChanged", arguments: ["transferId": transferId, "progress": transfer.progress.toProgressDict()])
+                                DispatchQueue.main.async {
+                                    self.callbackChannel.invokeMethod("onFileProgressChanged", arguments: ["transferId": transferId, "progress": transfer.progress.toProgressDict()])
+                                }
                             }
                             print(self.fileProgressTimers)
                         }
                     }
                     
-                } else{
+                } else {
                     handleFlutterError(result: result, message: "No transfer found, please try again")
                 }
-            } else{
+            } else {
                 handleFlutterError(result: result, message: "No transfer id specified, please try again")
             }
             result(nil)
         case "getOnProgressFileTransfers":
             checkForWatchSession(result: result)
-            result(watchSession!.outstandingFileTransfers.map{
+            result(watchSession!.outstandingFileTransfers.map {
                 $0.toRawTransferDict()
             })
         case "cancelUserInfoTransfer":
             checkForWatchSession(result: result)
-            if let transferId = call.arguments as? String{
+            if let transferId = call.arguments as? String {
                 if let transfer = watchSession!.outstandingUserInfoTransfers.first(where: { transfer in
                     transfer.userInfo.contains{key, value in
                         key == "id" && value is String && (value as! String) == transferId
                     }
                 }){
                     transfer.cancel()
-                    self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession!.outstandingUserInfoTransfers.map{
-                        $0.toRawTransferDict()
-                    })
-                } else{
+                    DispatchQueue.main.async {
+                        self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession!.outstandingUserInfoTransfers.map {
+                            $0.toRawTransferDict()
+                        })
+                    }
+                } else {
                     handleFlutterError(result: result, message: "No transfer found, please try again")
                 }
-            } else{
+            } else {
                 handleFlutterError(result: result, message: "No transfer id specified, please try again")
             }
             result(nil)
         case "cancelFileTransfer":
             checkForWatchSession(result: result)
-            if let transferId = call.arguments as? String{
-                if let timer = fileProgressTimers[transferId]{
+            if let transferId = call.arguments as? String {
+                if let timer = fileProgressTimers[transferId] {
                     timer.invalidate()
                     fileProgressTimers.removeValue(forKey: transferId)
                 }
                 if let transfer = watchSession!.outstandingFileTransfers.first(where: { transfer in
-                    transfer.file.metadata != nil && transfer.file.metadata!.contains{key, value in
+                    transfer.file.metadata != nil && transfer.file.metadata!.contains {key, value in
                         key == "id" && value is String && (value as! String) == transferId
                     }
                 }){
                     transfer.cancel()
-                    self.callbackChannel.invokeMethod("onPendingFileTransferListChanged", arguments: self.watchSession!.outstandingFileTransfers.map{
-                        $0.toRawTransferDict()
-                    })
-                } else{
+                    DispatchQueue.main.async {
+                        self.callbackChannel.invokeMethod("onPendingFileTransferListChanged", arguments: self.watchSession!.outstandingFileTransfers.map{
+                            $0.toRawTransferDict()
+                        })
+                    }
+                } else {
                     handleFlutterError(result: result, message: "No transfer found, please try again")
                 }
-            } else{
+            } else {
                 handleFlutterError(result: result, message: "No transfer id specified, please try again")
             }
             result(nil)
@@ -225,14 +237,14 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
         }
     }
     
-    private func checkForWatchSession(result: FlutterResult){
+    private func checkForWatchSession(result: FlutterResult) {
         guard watchSession != nil else {
             handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
             return
         }
     }
     
-    private func checkSessionReachability(result: FlutterResult){
+    private func checkSessionReachability(result: FlutterResult) {
         if (!watchSession!.isReachable){
             handleFlutterError(result: result, message: "Session is not reachable, your companion app is either disconnected or is in offline mode")
             return
@@ -241,7 +253,7 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
 }
 
 //MARK: - WCSessionDelegate methods handle
-extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
+extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate {
     public func sessionReachabilityDidChange(_ session: WCSession) {
         DispatchQueue.main.async {
             self.callbackChannel.invokeMethod("reachabilityChanged", arguments: session.isReachable)
@@ -294,14 +306,18 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
     }
     
     public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
-        callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: getApplicationContext(session: session))
+        DispatchQueue.main.async {
+            self.callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: self.getApplicationContext(session: session))
+        }
     }
     
     public func sessionWatchStateDidChange(_ session: WCSession) {
-        do {
-            callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
-        } catch {
-            handleCallbackError(message: error.localizedDescription)
+        DispatchQueue.main.async {
+            do {
+                self.callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
+            } catch {
+                self.handleCallbackError(message: error.localizedDescription)
+            }
         }
     }
     
@@ -312,7 +328,7 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
     }
     
     public func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
-        if error != nil{
+        if error != nil {
             handleCallbackError(message: error!.localizedDescription)
             return
         }
@@ -373,25 +389,27 @@ extension SwiftFlutterWatchOsConnectivityPlugin: WCSessionDelegate{
 //MARK: - Helper methods
 extension SwiftFlutterWatchOsConnectivityPlugin{
     private func getPairedDeviceInfo(session: WCSession){
-        do {
-            callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
-        } catch {
-            handleCallbackError(message: error.localizedDescription)
+        DispatchQueue.main.async {
+            do {
+                self.callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
+            } catch {
+                self.handleCallbackError(message: error.localizedDescription)
+            }
         }
     }
     
-    private func getApplicationContext(session: WCSession)-> [String: [String: Any]]{
+    private func getApplicationContext(session: WCSession)-> [String: [String: Any]] {
         var applicationContextDict: [String: [String: Any]] = [:]
         applicationContextDict["current"] = session.applicationContext
         applicationContextDict["received"] = session.receivedApplicationContext
         return applicationContextDict
     }
     
-    private func handleFlutterError(result: FlutterResult,message: String){
+    private func handleFlutterError(result: FlutterResult,message: String) {
         result(FlutterError(code: "500", message: message, details: nil))
     }
     
-    private func handleCallbackError(message: String){
+    private func handleCallbackError(message: String) {
         DispatchQueue.main.async {
             self.callbackChannel.invokeMethod("onError", arguments: message)
         }
@@ -399,7 +417,7 @@ extension SwiftFlutterWatchOsConnectivityPlugin{
 }
 
 extension WCSessionUserInfoTransfer{
-    func toRawTransferDict()-> [String: Any]{
+    func toRawTransferDict()-> [String: Any] {
         return [
             "isCurrentComplicationInfo": self.isCurrentComplicationInfo,
             "userInfo": self.userInfo,
@@ -409,7 +427,7 @@ extension WCSessionUserInfoTransfer{
 }
 
 extension WCSessionFileTransfer{
-    func toRawTransferDict()-> [String: Any]{
+    func toRawTransferDict()-> [String: Any] {
         return [
             "filePath": self.file.fileURL.path,
             "isTransferring": self.isTransferring,
@@ -434,12 +452,9 @@ extension WCSession{
 }
 
 extension Progress{
-    func toProgressDict()-> [String: Any]{
+    func toProgressDict()-> [String: Any] {
         var dict:  [String: Any] = [:]
         dict["currentProgress"] = self.completedUnitCount
-        //        if let estimatedTimeRemaining = self.estimatedTimeRemaining{
-        //            dict["estimateTimeRemaining"] = Int((estimatedTimeRemaining.truncatingRemainder(dividingBy: 1)) * 1000)
-        //        }
         return dict
     }
 }
