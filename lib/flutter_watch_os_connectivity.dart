@@ -40,6 +40,12 @@ class FlutterWatchOsConnectivity extends FlutterSmartWatchPlatformInterface {
     return isSupported ?? false;
   }
 
+  /// Check if your IOS device is supported to connect with WatchOS device
+  @override
+  Future<void> startWatchApp() async {
+    return await channel.invokeMethod("startWatchApp");
+  }
+
   /// Init and activate [WatchConnectivity] session
   Future configureAndActivateSession() async {
     _watchOSObserver = WatchOSObserver();
