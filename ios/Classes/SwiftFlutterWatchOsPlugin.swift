@@ -79,7 +79,7 @@ public class SwiftFlutterWatchOsConnectivityPlugin: NSObject, FlutterPlugin {
             checkForWatchSession(result: result)
             if let arguments = call.arguments as? [String: Any] {
                 checkSessionReachability(result: result)
-                if let message = arguments["replyMessage"] as? [String: Any], let replyHandlerId = arguments["replyHandlerId"] as? String, let replyHandler =  messageReplyHandlers[replyHandlerId] {
+              if let message = arguments["replyMessage"] as? [String: Any], let replyHandlerId = arguments["replyHandlerId"] as? String, let replyHandler =  messageReplyHandlers.removeValue(forKey: replyHandlerId) {
                     replyHandler(message)
                 }
             }
